@@ -18,26 +18,16 @@ cd "$SERVER_DIR"
 echo "Limpiando instalaciones anteriores..."
 rm -f server.jar
 
-echo "Consultando la API de PaperMC para obtener la última versión..."
-# Extraer la última versión de Minecraft soportada por Paper
-PAPER_VERSION=$(curl -s https://api.papermc.io/v2/projects/paper | jq -r '.versions[-1]')
-echo "Versión de Minecraft encontrada: $PAPER_VERSION"
+# Enlace directo proporcionado
+DOWNLOAD_URL="https://fill-data.papermc.io/v1/objects/1d70b1dab9cf4a6de615209a536f3a45a2186240253c428213ce2188ab95e5f7/paper-26.1.2-74.jar"
 
-# Extraer el último build de esa versión específica
-BUILD=$(curl -s https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION} | jq -r '.builds[-1]')
-echo "Último build de PaperMC: $BUILD"
-
-# Construir la URL de descarga dinámica
-JAR_NAME="paper-${PAPER_VERSION}-${BUILD}.jar"
-DOWNLOAD_URL="https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION}/builds/${BUILD}/downloads/${JAR_NAME}"
-
-echo "Descargando el núcleo del servidor ($JAR_NAME)..."
-# Usamos -fsSL para seguir redirecciones y fallar limpiamente si la URL da error 404/500
+echo "Descargando el núcleo del servidor desde el enlace directo..."
+# Usamos -fsSL para manejar la descarga limpiamente
 curl -fsSL -o server.jar "$DOWNLOAD_URL"
 
 # Verificar si el archivo se descargó correctamente y tiene un tamaño razonable (mayor a 10MB)
 if [ ! -s server.jar ] || [ $(stat -c%s "server.jar") -lt 10000000 ]; then
-    echo "ERROR: La descarga falló o el archivo server.jar está corrupto. Intenta ejecutar el script de nuevo."
+    echo "ERROR: La descarga falló o el archivo server.jar está corrupto. Verifica el enlace."
     exit 1
 fi
 
