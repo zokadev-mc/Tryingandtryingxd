@@ -14,6 +14,10 @@ SERVER_DIR="$HOME/minecraft_server"
 mkdir -p "$SERVER_DIR/plugins"
 cd "$SERVER_DIR"
 
+# Eliminar el archivo corrupto si existe de un intento anterior
+echo "Limpiando instalaciones anteriores..."
+rm -f server.jar
+
 echo "Consultando la API de PaperMC para obtener la última versión..."
 # Extraer la última versión de Minecraft soportada por Paper
 PAPER_VERSION=$(curl -s https://api.papermc.io/v2/projects/paper | jq -r '.versions[-1]')
@@ -28,7 +32,14 @@ JAR_NAME="paper-${PAPER_VERSION}-${BUILD}.jar"
 DOWNLOAD_URL="https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION}/builds/${BUILD}/downloads/${JAR_NAME}"
 
 echo "Descargando el núcleo del servidor ($JAR_NAME)..."
-curl -s -o server.jar "$DOWNLOAD_URL"
+# Usamos -fsSL para seguir redirecciones y fallar limpiamente si la URL da error 404/500
+curl -fsSL -o server.jar "$DOWNLOAD_URL"
+
+# Verificar si el archivo se descargó correctamente y tiene un tamaño razonable (mayor a 10MB)
+if [ ! -s server.jar ] || [ $(stat -c%s "server.jar") -lt 10000000 ]; then
+    echo "ERROR: La descarga falló o el archivo server.jar está corrupto. Intenta ejecutar el script de nuevo."
+    exit 1
+fi
 
 echo "Aceptando el EULA automáticamente..."
 echo "eula=true" > eula.txt
@@ -36,7 +47,7 @@ echo "eula=true" > eula.txt
 echo "Descargando el plugin de Playit.gg..."
 # Descargamos el release más reciente directamente desde el repositorio oficial
 PLAYIT_URL="https://github.com/playit-cloud/playit-minecraft-plugin/releases/latest/download/playit-minecraft-plugin.jar"
-curl -s -L -o plugins/playit.jar "$PLAYIT_URL"
+curl -fsSL -o plugins/playit.jar "$PLAYIT_URL"
 
 echo "Creando script de arranque (start.sh)..."
 cat << 'EOF' > start.sh
