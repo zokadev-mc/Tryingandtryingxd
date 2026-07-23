@@ -1181,6 +1181,20 @@
     };
 
     function updateHandBlock(typeId) {
+      if (typeId === 10) {
+        handMaterials.forEach((mat, i) => {
+          const ctx = mat.map.image.getContext('2d');
+          ctx.clearRect(0, 0, 16, 16);
+          ctx.drawImage(glassCanvas, glassPad, glassPad, 16, 16, 0, 0, 16, 16);
+          mat.map.offset.set(0, 0);
+          mat.map.repeat.set(1, 1);
+          mat.map.minFilter = THREE.NearestFilter;
+          mat.map.magFilter = THREE.NearestFilter;
+          mat.map.generateMipmaps = false;
+          mat.map.needsUpdate = true;
+        });
+        return;
+      }
       const faces = ATLAS_FACE[typeId];
       if (!faces) return;
       faces.forEach((tileIdx, i) => {
@@ -1189,6 +1203,8 @@
           const ctx = handMaterials[i].map.image.getContext('2d');
           ctx.clearRect(0, 0, 16, 16);
           ctx.drawImage(cv, 0, 0);
+          handMaterials[i].map.offset.set(0, 0);
+          handMaterials[i].map.repeat.set(1, 1);
           handMaterials[i].map.needsUpdate = true;
         }
       });
@@ -1446,11 +1462,10 @@
       function addGlassFaceQuad(bucket, tileIdx, p0, p1, p2, p3, norm, aos) {
         const v = bucket.vertexCount;
         const gs = 16 + glassPad * 2;
-        const eps = 1.0 / gs;
-        const u0 = glassPad / gs + eps;
-        const u1 = (glassPad + 16) / gs - eps;
-        const v0 = 1.0 - (glassPad + 16) / gs + eps;
-        const v1 = 1.0 - glassPad / gs - eps;
+        const u0 = (glassPad + 0.5) / gs;
+        const u1 = (glassPad + 16 - 0.5) / gs;
+        const v0 = 1.0 - (glassPad + 16 - 0.5) / gs;
+        const v1 = 1.0 - (glassPad + 0.5) / gs;
         bucket.positions.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], p3[0], p3[1], p3[2]);
         const nx = norm[0], ny = norm[1], nz = norm[2];
         bucket.normals.push(nx, ny, nz, nx, ny, nz, nx, ny, nz, nx, ny, nz);
