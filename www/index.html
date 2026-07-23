@@ -2280,6 +2280,7 @@
     let handBlockMesh = new THREE.Mesh(miniBlockGeo, handMaterials);
     handBlockMesh.position.set(0.38, -0.32, -0.5);
     handBlockMesh.rotation.set(0.2, -0.4, 0.1);
+    handBlockMesh.renderOrder = 3;
     handGroup.add(handBlockMesh);
 
     let swingProgress = 0.0;
