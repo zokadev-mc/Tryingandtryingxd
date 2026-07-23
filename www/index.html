@@ -1066,23 +1066,32 @@
       actx.drawImage(cv, sx + PADDING, sy + PADDING);
 
       for (let p = 1; p <= PADDING; p++) {
-        // Bordes rectos
-        actx.drawImage(cv, 0, 0, 16, 1, sx + PADDING, sy + PADDING - p, 16, 1); // Arriba
-        actx.drawImage(cv, 0, 15, 16, 1, sx + PADDING, sy + PADDING + 16 + p - 1, 16, 1); // Abajo
-        actx.drawImage(cv, 0, 0, 1, 16, sx + PADDING - p, sy + PADDING, 1, 16); // Izquierda
-        actx.drawImage(cv, 15, 0, 1, 16, sx + PADDING + 16 + p - 1, sy + PADDING, 1, 16); // Derecha
-        
-        // Esquinas (Crucial para que los mipmaps diagonales no agarren el fondo negro)
-        actx.drawImage(cv, 0, 0, 1, 1, sx + PADDING - p, sy + PADDING - p, 1, 1); // Top-Left
-        actx.drawImage(cv, 15, 0, 1, 1, sx + PADDING + 16 + p - 1, sy + PADDING - p, 1, 1); // Top-Right
-        actx.drawImage(cv, 0, 15, 1, 1, sx + PADDING - p, sy + PADDING + 16 + p - 1, 1, 1); // Bottom-Left
-        actx.drawImage(cv, 15, 15, 1, 1, sx + PADDING + 16 + p - 1, sy + PADDING + 16 + p - 1, 1, 1); // Bottom-Right
+        actx.drawImage(cv, 0, 0, 16, 1, sx + PADDING, sy + PADDING - p, 16, 1);
+        actx.drawImage(cv, 0, 15, 16, 1, sx + PADDING, sy + PADDING + 16 + p - 1, 16, 1);
+        actx.drawImage(cv, 0, 0, 1, 16, sx + PADDING - p, sy + PADDING, 1, 16);
+        actx.drawImage(cv, 15, 0, 1, 16, sx + PADDING + 16 + p - 1, sy + PADDING, 1, 16);
+        actx.drawImage(cv, 0, 0, 1, 1, sx + PADDING - p, sy + PADDING - p, 1, 1);
+        actx.drawImage(cv, 15, 0, 1, 1, sx + PADDING + 16 + p - 1, sy + PADDING - p, 1, 1);
+        actx.drawImage(cv, 0, 15, 1, 1, sx + PADDING - p, sy + PADDING + 16 + p - 1, 1, 1);
+        actx.drawImage(cv, 15, 15, 1, 1, sx + PADDING + 16 + p - 1, sy + PADDING + 16 + p - 1, 1, 1);
       }
     });
 
+    // Rellenar slots vacíos del atlas para evitar que el negro se filtre en los mipmaps
+    const totalSlots = ATLAS_COLS * Math.ceil(atlasTiles.length / ATLAS_COLS);
+    for (let i = atlasTiles.length; i < totalSlots; i++) {
+      const col = i % ATLAS_COLS;
+      const row = Math.floor(i / ATLAS_COLS);
+      const sx = col * SLOT_SIZE;
+      const sy = row * SLOT_SIZE;
+      const srcCol = Math.max(0, col - 1);
+      const srcSX = srcCol * SLOT_SIZE;
+      actx.drawImage(atlasCanvas, srcSX, sy, SLOT_SIZE, SLOT_SIZE, sx, sy, SLOT_SIZE, SLOT_SIZE);
+    }
+
     const atlasTexture = new THREE.CanvasTexture(atlasCanvas);
     atlasTexture.magFilter = THREE.NearestFilter;
-    atlasTexture.minFilter = THREE.NearestMipmapLinearFilter; // Mipmaps suavizados a la distancia sin sangrado
+    atlasTexture.minFilter = THREE.NearestMipmapNearestFilter;
     atlasTexture.generateMipmaps = true; 
     atlasTexture.encoding = THREE.sRGBEncoding;
 

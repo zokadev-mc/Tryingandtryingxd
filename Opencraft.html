@@ -1080,9 +1080,21 @@
       }
     });
 
+    // Rellenar slots vacíos del atlas para evitar que el negro se filtre en los mipmaps
+    const totalSlots = ATLAS_COLS * Math.ceil(atlasTiles.length / ATLAS_COLS);
+    for (let i = atlasTiles.length; i < totalSlots; i++) {
+      const col = i % ATLAS_COLS;
+      const row = Math.floor(i / ATLAS_COLS);
+      const sx = col * SLOT_SIZE;
+      const sy = row * SLOT_SIZE;
+      const srcCol = Math.max(0, col - 1);
+      const srcSX = srcCol * SLOT_SIZE;
+      actx.drawImage(atlasCanvas, srcSX, sy, SLOT_SIZE, SLOT_SIZE, sx, sy, SLOT_SIZE, SLOT_SIZE);
+    }
+
     const atlasTexture = new THREE.CanvasTexture(atlasCanvas);
     atlasTexture.magFilter = THREE.NearestFilter;
-    atlasTexture.minFilter = THREE.NearestMipmapLinearFilter; // Mipmaps suavizados a la distancia sin sangrado
+    atlasTexture.minFilter = THREE.NearestMipmapNearestFilter;
     atlasTexture.generateMipmaps = true; 
     atlasTexture.encoding = THREE.sRGBEncoding;
 
