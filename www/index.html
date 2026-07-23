@@ -1106,21 +1106,38 @@
     });
     atlasMatTransparent.shadowSide = THREE.DoubleSide;
 
-    const glassPad = 8;
+    const GLASS_COLS = 4;
+    const GLASS_SLOT = 16 + 8 * 2;
+    const GLASS_ATLAS_SIZE = GLASS_COLS * GLASS_SLOT;
     const glassCanvas = document.createElement('canvas');
-    glassCanvas.width = glassCanvas.height = 16 + glassPad * 2;
-    const gCtx = glassCanvas.getContext('2d');
-    gCtx.imageSmoothingEnabled = false;
-    gCtx.drawImage(texGlass.canvas, glassPad, glassPad);
-    for (let p = 1; p <= glassPad; p++) {
-      gCtx.drawImage(texGlass.canvas, 0, 0, 16, 1, glassPad, glassPad - p, 16, 1);
-      gCtx.drawImage(texGlass.canvas, 0, 15, 16, 1, glassPad, glassPad + 16 + p - 1, 16, 1);
-      gCtx.drawImage(texGlass.canvas, 0, 0, 1, 16, glassPad - p, glassPad, 1, 16);
-      gCtx.drawImage(texGlass.canvas, 15, 0, 1, 16, glassPad + 16 + p - 1, glassPad, 1, 16);
-      gCtx.drawImage(texGlass.canvas, 0, 0, 1, 1, glassPad - p, glassPad - p, 1, 1);
-      gCtx.drawImage(texGlass.canvas, 15, 0, 1, 1, glassPad + 16 + p - 1, glassPad - p, 1, 1);
-      gCtx.drawImage(texGlass.canvas, 0, 15, 1, 1, glassPad - p, glassPad + 16 + p - 1, 1, 1);
-      gCtx.drawImage(texGlass.canvas, 15, 15, 1, 1, glassPad + 16 + p - 1, glassPad + 16 + p - 1, 1, 1);
+    glassCanvas.width = glassCanvas.height = GLASS_ATLAS_SIZE;
+    const gaCtx = glassCanvas.getContext('2d');
+    gaCtx.imageSmoothingEnabled = false;
+    const gTemp = document.createElement('canvas');
+    gTemp.width = gTemp.height = 16;
+    const gtCtx = gTemp.getContext('2d');
+    gtCtx.imageSmoothingEnabled = false;
+    for (let mask = 0; mask < 16; mask++) {
+      const col = mask & 3, row = mask >> 2;
+      const sx = col * GLASS_SLOT, sy = row * GLASS_SLOT;
+      gtCtx.fillStyle = 'rgba(180, 230, 255, 0.2)';
+      gtCtx.fillRect(0, 0, 16, 16);
+      const up = mask & 1, dn = (mask >> 1) & 1, lf = (mask >> 2) & 1, rt = (mask >> 3) & 1;
+      if (!up) { gtCtx.fillStyle = 'rgba(255,255,255,0.8)'; gtCtx.fillRect(0, 0, 16, 1); }
+      if (!dn) { gtCtx.fillStyle = 'rgba(255,255,255,0.8)'; gtCtx.fillRect(0, 15, 16, 1); }
+      if (!lf) { gtCtx.fillStyle = 'rgba(255,255,255,0.8)'; gtCtx.fillRect(0, 0, 1, 16); }
+      if (!rt) { gtCtx.fillStyle = 'rgba(255,255,255,0.8)'; gtCtx.fillRect(15, 0, 1, 16); }
+      gaCtx.drawImage(gTemp, sx + 8, sy + 8);
+      for (let p = 1; p <= 8; p++) {
+        gaCtx.drawImage(gTemp, 0, 0, 16, 1, sx + 8, sy + 8 - p, 16, 1);
+        gaCtx.drawImage(gTemp, 0, 15, 16, 1, sx + 8, sy + 8 + 16 + p - 1, 16, 1);
+        gaCtx.drawImage(gTemp, 0, 0, 1, 16, sx + 8 - p, sy + 8, 1, 16);
+        gaCtx.drawImage(gTemp, 15, 0, 1, 16, sx + 8 + 16 + p - 1, sy + 8, 1, 16);
+        gaCtx.drawImage(gTemp, 0, 0, 1, 1, sx + 8 - p, sy + 8 - p, 1, 1);
+        gaCtx.drawImage(gTemp, 15, 0, 1, 1, sx + 8 + 16 + p - 1, sy + 8 - p, 1, 1);
+        gaCtx.drawImage(gTemp, 0, 15, 1, 1, sx + 8 - p, sy + 8 + 16 + p - 1, 1, 1);
+        gaCtx.drawImage(gTemp, 15, 15, 1, 1, sx + 8 + 16 + p - 1, sy + 8 + 16 + p - 1, 1, 1);
+      }
     }
     const glassTexture = new THREE.CanvasTexture(glassCanvas);
     glassTexture.magFilter = THREE.NearestFilter;
@@ -1185,7 +1202,7 @@
         handMaterials.forEach((mat, i) => {
           const ctx = mat.map.image.getContext('2d');
           ctx.clearRect(0, 0, 16, 16);
-          ctx.drawImage(glassCanvas, glassPad, glassPad, 16, 16, 0, 0, 16, 16);
+          ctx.drawImage(glassCanvas, 8, 8, 16, 16, 0, 0, 16, 16);
           mat.map.offset.set(0, 0);
           mat.map.repeat.set(1, 1);
           mat.map.minFilter = THREE.NearestFilter;
@@ -1419,6 +1436,21 @@
         if (id === 0 || id === 14) return false;
         return BLOCKS[id]?.opaque === true;
       }
+      function isFaceOccluded(lx, ly, lz) {
+        const id = getBlockFast(lx, ly, lz);
+        if (id === 0 || id === 14) return false;
+        if (id === 10) return true;
+        return BLOCKS[id]?.opaque === true;
+      }
+      function glassAdjMask(lx, ly, lz, dx, dy, dz) {
+        if (dx === 1) return (getBlockFast(lx,ly+1,lz)===10?1:0)|(getBlockFast(lx,ly-1,lz)===10?2:0)|(getBlockFast(lx,ly,lz-1)===10?4:0)|(getBlockFast(lx,ly,lz+1)===10?8:0);
+        if (dx === -1) return (getBlockFast(lx,ly+1,lz)===10?1:0)|(getBlockFast(lx,ly-1,lz)===10?2:0)|(getBlockFast(lx,ly,lz+1)===10?4:0)|(getBlockFast(lx,ly,lz-1)===10?8:0);
+        if (dy === 1) return (getBlockFast(lx,ly,lz-1)===10?1:0)|(getBlockFast(lx,ly,lz+1)===10?2:0)|(getBlockFast(lx-1,ly,lz)===10?4:0)|(getBlockFast(lx+1,ly,lz)===10?8:0);
+        if (dy === -1) return (getBlockFast(lx,ly,lz+1)===10?1:0)|(getBlockFast(lx,ly,lz-1)===10?2:0)|(getBlockFast(lx-1,ly,lz)===10?4:0)|(getBlockFast(lx+1,ly,lz)===10?8:0);
+        if (dz === 1) return (getBlockFast(lx,ly+1,lz)===10?1:0)|(getBlockFast(lx,ly-1,lz)===10?2:0)|(getBlockFast(lx-1,ly,lz)===10?4:0)|(getBlockFast(lx+1,ly,lz)===10?8:0);
+        if (dz === -1) return (getBlockFast(lx,ly+1,lz)===10?1:0)|(getBlockFast(lx,ly-1,lz)===10?2:0)|(getBlockFast(lx+1,ly,lz)===10?4:0)|(getBlockFast(lx-1,ly,lz)===10?8:0);
+        return 0;
+      }
 
       function createBucket() {
         return { positions: [], normals: [], uvs: [], colors: [], indices: [], vertexCount: 0 };
@@ -1459,13 +1491,16 @@
         bucket.vertexCount += 4;
       }
 
-      function addGlassFaceQuad(bucket, tileIdx, p0, p1, p2, p3, norm, aos) {
+      function addGlassFaceQuad(bucket, mask, p0, p1, p2, p3, norm, aos) {
         const v = bucket.vertexCount;
-        const gs = 16 + glassPad * 2;
-        const u0 = (glassPad + 0.5) / gs;
-        const u1 = (glassPad + 16 - 0.5) / gs;
-        const v0 = 1.0 - (glassPad + 16 - 0.5) / gs;
-        const v1 = 1.0 - (glassPad + 0.5) / gs;
+        const col = mask & 3;
+        const row = mask >> 2;
+        const sx = col * GLASS_SLOT;
+        const sy = row * GLASS_SLOT;
+        const u0 = (sx + 8 + 0.5) / GLASS_ATLAS_SIZE;
+        const u1 = (sx + 8 + 16 - 0.5) / GLASS_ATLAS_SIZE;
+        const v0 = 1.0 - (sy + 8 + 16 - 0.5) / GLASS_ATLAS_SIZE;
+        const v1 = 1.0 - (sy + 8 + 0.5) / GLASS_ATLAS_SIZE;
         bucket.positions.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], p3[0], p3[1], p3[2]);
         const nx = norm[0], ny = norm[1], nz = norm[2];
         bucket.normals.push(nx, ny, nz, nx, ny, nz, nx, ny, nz, nx, ny, nz);
@@ -1495,68 +1530,74 @@
             const isTransparent = BLOCKS[typeId]?.opaque === false;
             const isGlass = typeId === 10;
             const bucket = isGlass ? glassBucket : (isTransparent ? transBucket : opaqueBucket);
-            const addQuad = isGlass ? addGlassFaceQuad : addFaceQuad;
+            const faceCull = isGlass ? isFaceOccluded : isOpaqueFast;
 
             const x0 = gx * VOXEL_SIZE_X, x1 = (gx + 1) * VOXEL_SIZE_X;
             const y0 = gy * VOXEL_SIZE_Y, y1 = (gy + 1) * VOXEL_SIZE_Y;
             const z0 = gz * VOXEL_SIZE_Z, z1 = (gz + 1) * VOXEL_SIZE_Z;
 
             // CARA DERECHA (+X)
-            if (!isOpaqueFast(lx + 1, ly, lz)) {
+            if (!faceCull(lx + 1, ly, lz)) {
               const ao0 = calcAO(isOpaqueFast(lx + 1, ly - 1, lz), isOpaqueFast(lx + 1, ly, lz + 1), isOpaqueFast(lx + 1, ly - 1, lz + 1));
               const ao1 = calcAO(isOpaqueFast(lx + 1, ly - 1, lz), isOpaqueFast(lx + 1, ly, lz - 1), isOpaqueFast(lx + 1, ly - 1, lz - 1));
               const ao2 = calcAO(isOpaqueFast(lx + 1, ly + 1, lz), isOpaqueFast(lx + 1, ly, lz - 1), isOpaqueFast(lx + 1, ly + 1, lz - 1));
               const ao3 = calcAO(isOpaqueFast(lx + 1, ly + 1, lz), isOpaqueFast(lx + 1, ly, lz + 1), isOpaqueFast(lx + 1, ly + 1, lz + 1));
-              addQuad(bucket, faceTileIdx[0], [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [1, 0, 0], [ao0, ao1, ao2, ao3]);
+              if (isGlass) addGlassFaceQuad(bucket, glassAdjMask(lx, ly, lz, 1,0,0), [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [1,0,0], [ao0, ao1, ao2, ao3]);
+              else addFaceQuad(bucket, faceTileIdx[0], [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [1,0,0], [ao0, ao1, ao2, ao3]);
             }
 
             // CARA IZQUIERDA (-X)
-            if (!isOpaqueFast(lx - 1, ly, lz)) {
+            if (!faceCull(lx - 1, ly, lz)) {
               const ao0 = calcAO(isOpaqueFast(lx - 1, ly - 1, lz), isOpaqueFast(lx - 1, ly, lz - 1), isOpaqueFast(lx - 1, ly - 1, lz - 1));
               const ao1 = calcAO(isOpaqueFast(lx - 1, ly - 1, lz), isOpaqueFast(lx - 1, ly, lz + 1), isOpaqueFast(lx - 1, ly - 1, lz + 1));
               const ao2 = calcAO(isOpaqueFast(lx - 1, ly + 1, lz), isOpaqueFast(lx - 1, ly, lz + 1), isOpaqueFast(lx - 1, ly + 1, lz + 1));
               const ao3 = calcAO(isOpaqueFast(lx - 1, ly + 1, lz), isOpaqueFast(lx - 1, ly, lz - 1), isOpaqueFast(lx - 1, ly + 1, lz - 1));
-              addQuad(bucket, faceTileIdx[1], [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [-1, 0, 0], [ao0, ao1, ao2, ao3]);
+              if (isGlass) addGlassFaceQuad(bucket, glassAdjMask(lx, ly, lz, -1,0,0), [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [-1,0,0], [ao0, ao1, ao2, ao3]);
+              else addFaceQuad(bucket, faceTileIdx[1], [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [-1,0,0], [ao0, ao1, ao2, ao3]);
             }
 
             // CARA SUPERIOR (+Y)
-            if (!isOpaqueFast(lx, ly + 1, lz)) {
+            if (!faceCull(lx, ly + 1, lz)) {
               const sL = isOpaqueFast(lx - 1, ly + 1, lz), sR = isOpaqueFast(lx + 1, ly + 1, lz);
               const sF = isOpaqueFast(lx, ly + 1, lz + 1), sB = isOpaqueFast(lx, ly + 1, lz - 1);
               const ao0 = calcAO(sL, sF, isOpaqueFast(lx - 1, ly + 1, lz + 1));
               const ao1 = calcAO(sR, sF, isOpaqueFast(lx + 1, ly + 1, lz + 1));
               const ao2 = calcAO(sR, sB, isOpaqueFast(lx + 1, ly + 1, lz - 1));
               const ao3 = calcAO(sL, sB, isOpaqueFast(lx - 1, ly + 1, lz - 1));
-              addQuad(bucket, faceTileIdx[2], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], [0, 1, 0], [ao0, ao1, ao2, ao3]);
+              if (isGlass) addGlassFaceQuad(bucket, glassAdjMask(lx, ly, lz, 0,1,0), [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], [0,1,0], [ao0, ao1, ao2, ao3]);
+              else addFaceQuad(bucket, faceTileIdx[2], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], [0,1,0], [ao0, ao1, ao2, ao3]);
             }
 
             // CARA INFERIOR (-Y)
-            if (!isOpaqueFast(lx, ly - 1, lz)) {
+            if (!faceCull(lx, ly - 1, lz)) {
               const sL = isOpaqueFast(lx - 1, ly - 1, lz), sR = isOpaqueFast(lx + 1, ly - 1, lz);
               const sF = isOpaqueFast(lx, ly - 1, lz + 1), sB = isOpaqueFast(lx, ly - 1, lz - 1);
               const ao0 = calcAO(sL, sB, isOpaqueFast(lx - 1, ly - 1, lz - 1));
               const ao1 = calcAO(sR, sB, isOpaqueFast(lx + 1, ly - 1, lz - 1));
               const ao2 = calcAO(isOpaqueFast(lx + 1, ly - 1, lz + 1), isOpaqueFast(lx, ly - 1, lz + 1), isOpaqueFast(lx + 1, ly - 1, lz + 1));
               const ao3 = calcAO(isOpaqueFast(lx - 1, ly - 1, lz + 1), isOpaqueFast(lx, ly - 1, lz + 1), isOpaqueFast(lx - 1, ly - 1, lz + 1));
-              addQuad(bucket, faceTileIdx[3], [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], [0, -1, 0], [ao0, ao1, ao2, ao3]);
+              if (isGlass) addGlassFaceQuad(bucket, glassAdjMask(lx, ly, lz, 0,-1,0), [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], [0,-1,0], [ao0, ao1, ao2, ao3]);
+              else addFaceQuad(bucket, faceTileIdx[3], [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], [0,-1,0], [ao0, ao1, ao2, ao3]);
             }
 
             // CARA FRONTAL (+Z)
-            if (!isOpaqueFast(lx, ly, lz + 1)) {
+            if (!faceCull(lx, ly, lz + 1)) {
               const ao0 = calcAO(isOpaqueFast(lx - 1, ly, lz + 1), isOpaqueFast(lx, ly - 1, lz + 1), isOpaqueFast(lx - 1, ly - 1, lz + 1));
               const ao1 = calcAO(isOpaqueFast(lx + 1, ly, lz + 1), isOpaqueFast(lx, ly - 1, lz + 1), isOpaqueFast(lx + 1, ly - 1, lz + 1));
               const ao2 = calcAO(isOpaqueFast(lx + 1, ly + 1, lz + 1), isOpaqueFast(lx, ly + 1, lz + 1), isOpaqueFast(lx + 1, ly + 1, lz + 1));
               const ao3 = calcAO(isOpaqueFast(lx - 1, ly + 1, lz + 1), isOpaqueFast(lx, ly + 1, lz + 1), isOpaqueFast(lx - 1, ly + 1, lz + 1));
-              addQuad(bucket, faceTileIdx[4], [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0, 0, 1], [ao0, ao1, ao2, ao3]);
+              if (isGlass) addGlassFaceQuad(bucket, glassAdjMask(lx, ly, lz, 0,0,1), [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0,0,1], [ao0, ao1, ao2, ao3]);
+              else addFaceQuad(bucket, faceTileIdx[4], [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0,0,1], [ao0, ao1, ao2, ao3]);
             }
 
             // CARA TRASERA (-Z)
-            if (!isOpaqueFast(lx, ly, lz - 1)) {
+            if (!faceCull(lx, ly, lz - 1)) {
               const ao0 = calcAO(isOpaqueFast(lx + 1, ly, lz - 1), isOpaqueFast(lx, ly - 1, lz - 1), isOpaqueFast(lx + 1, ly - 1, lz - 1));
               const ao1 = calcAO(isOpaqueFast(lx - 1, ly, lz - 1), isOpaqueFast(lx, ly - 1, lz - 1), isOpaqueFast(lx - 1, ly - 1, lz - 1));
               const ao2 = calcAO(isOpaqueFast(lx - 1, ly + 1, lz - 1), isOpaqueFast(lx, ly + 1, lz - 1), isOpaqueFast(lx - 1, ly + 1, lz - 1));
               const ao3 = calcAO(isOpaqueFast(lx + 1, ly + 1, lz - 1), isOpaqueFast(lx, ly + 1, lz - 1), isOpaqueFast(lx + 1, ly + 1, lz - 1));
-              addQuad(bucket, faceTileIdx[5], [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [0, 0, -1], [ao0, ao1, ao2, ao3]);
+              if (isGlass) addGlassFaceQuad(bucket, glassAdjMask(lx, ly, lz, 0,0,-1), [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [0,0,-1], [ao0, ao1, ao2, ao3]);
+              else addFaceQuad(bucket, faceTileIdx[5], [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [0,0,-1], [ao0, ao1, ao2, ao3]);
             }
           }
         }
