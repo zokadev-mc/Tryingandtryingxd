@@ -1109,6 +1109,18 @@
     });
     atlasMatTransparent.shadowSide = THREE.DoubleSide;
 
+    const glassCanvas = document.createElement('canvas');
+    glassCanvas.width = 16; glassCanvas.height = 16;
+    glassCanvas.getContext('2d').drawImage(texGlass.canvas, 0, 0);
+    const glassTexture = new THREE.CanvasTexture(glassCanvas);
+    glassTexture.magFilter = THREE.NearestFilter;
+    glassTexture.minFilter = THREE.NearestFilter;
+    glassTexture.encoding = THREE.sRGBEncoding;
+    const glassMat = new THREE.MeshStandardMaterial({
+      map: glassTexture, roughness: 0.6, metalness: 0.05,
+      transparent: true, alphaTest: 0.01
+    });
+
     function makeHandTex() {
       const c = document.createElement('canvas');
       c.width = 16; c.height = 16;
@@ -1387,6 +1399,7 @@
 
       const opaqueBucket = createBucket();
       const transBucket = createBucket();
+      const glassBucket = createBucket();
 
       function addFaceQuad(bucket, tileIdx, p0, p1, p2, p3, norm, aos) {
         const v = bucket.vertexCount;
@@ -1419,6 +1432,22 @@
         bucket.vertexCount += 4;
       }
 
+      function addGlassFaceQuad(bucket, tileIdx, p0, p1, p2, p3, norm, aos) {
+        const v = bucket.vertexCount;
+        bucket.positions.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], p3[0], p3[1], p3[2]);
+        const nx = norm[0], ny = norm[1], nz = norm[2];
+        bucket.normals.push(nx, ny, nz, nx, ny, nz, nx, ny, nz, nx, ny, nz);
+        bucket.uvs.push(0, 1, 1, 1, 1, 0, 0, 0);
+        const c0 = aos[0], c1 = aos[1], c2 = aos[2], c3 = aos[3];
+        bucket.colors.push(c0, c0, c0, c1, c1, c1, c2, c2, c2, c3, c3, c3);
+        if (c0 + c2 > c1 + c3) {
+          bucket.indices.push(v, v + 1, v + 2, v, v + 2, v + 3);
+        } else {
+          bucket.indices.push(v + 1, v + 2, v + 3, v + 1, v + 3, v);
+        }
+        bucket.vertexCount += 4;
+      }
+
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         for (let lz = 0; lz < CHUNK_SIZE; lz++) {
           for (let ly = 0; ly < CHUNK_HEIGHT; ly++) {
@@ -1432,7 +1461,9 @@
 
             const faceTileIdx = ATLAS_FACE[typeId];
             const isTransparent = BLOCKS[typeId]?.opaque === false;
-            const bucket = isTransparent ? transBucket : opaqueBucket;
+            const isGlass = typeId === 10;
+            const bucket = isGlass ? glassBucket : (isTransparent ? transBucket : opaqueBucket);
+            const addQuad = isGlass ? addGlassFaceQuad : addFaceQuad;
 
             const x0 = gx * VOXEL_SIZE_X, x1 = (gx + 1) * VOXEL_SIZE_X;
             const y0 = gy * VOXEL_SIZE_Y, y1 = (gy + 1) * VOXEL_SIZE_Y;
@@ -1444,7 +1475,7 @@
               const ao1 = calcAO(isOpaqueFast(lx + 1, ly - 1, lz), isOpaqueFast(lx + 1, ly, lz - 1), isOpaqueFast(lx + 1, ly - 1, lz - 1));
               const ao2 = calcAO(isOpaqueFast(lx + 1, ly + 1, lz), isOpaqueFast(lx + 1, ly, lz - 1), isOpaqueFast(lx + 1, ly + 1, lz - 1));
               const ao3 = calcAO(isOpaqueFast(lx + 1, ly + 1, lz), isOpaqueFast(lx + 1, ly, lz + 1), isOpaqueFast(lx + 1, ly + 1, lz + 1));
-              addFaceQuad(bucket, faceTileIdx[0], [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [1, 0, 0], [ao0, ao1, ao2, ao3]);
+              addQuad(bucket, faceTileIdx[0], [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [1, 0, 0], [ao0, ao1, ao2, ao3]);
             }
 
             // CARA IZQUIERDA (-X)
@@ -1453,7 +1484,7 @@
               const ao1 = calcAO(isOpaqueFast(lx - 1, ly - 1, lz), isOpaqueFast(lx - 1, ly, lz + 1), isOpaqueFast(lx - 1, ly - 1, lz + 1));
               const ao2 = calcAO(isOpaqueFast(lx - 1, ly + 1, lz), isOpaqueFast(lx - 1, ly, lz + 1), isOpaqueFast(lx - 1, ly + 1, lz + 1));
               const ao3 = calcAO(isOpaqueFast(lx - 1, ly + 1, lz), isOpaqueFast(lx - 1, ly, lz - 1), isOpaqueFast(lx - 1, ly + 1, lz - 1));
-              addFaceQuad(bucket, faceTileIdx[1], [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [-1, 0, 0], [ao0, ao1, ao2, ao3]);
+              addQuad(bucket, faceTileIdx[1], [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [-1, 0, 0], [ao0, ao1, ao2, ao3]);
             }
 
             // CARA SUPERIOR (+Y)
@@ -1464,7 +1495,7 @@
               const ao1 = calcAO(sR, sF, isOpaqueFast(lx + 1, ly + 1, lz + 1));
               const ao2 = calcAO(sR, sB, isOpaqueFast(lx + 1, ly + 1, lz - 1));
               const ao3 = calcAO(sL, sB, isOpaqueFast(lx - 1, ly + 1, lz - 1));
-              addFaceQuad(bucket, faceTileIdx[2], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], [0, 1, 0], [ao0, ao1, ao2, ao3]);
+              addQuad(bucket, faceTileIdx[2], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], [0, 1, 0], [ao0, ao1, ao2, ao3]);
             }
 
             // CARA INFERIOR (-Y)
@@ -1475,7 +1506,7 @@
               const ao1 = calcAO(sR, sB, isOpaqueFast(lx + 1, ly - 1, lz - 1));
               const ao2 = calcAO(isOpaqueFast(lx + 1, ly - 1, lz + 1), isOpaqueFast(lx, ly - 1, lz + 1), isOpaqueFast(lx + 1, ly - 1, lz + 1));
               const ao3 = calcAO(isOpaqueFast(lx - 1, ly - 1, lz + 1), isOpaqueFast(lx, ly - 1, lz + 1), isOpaqueFast(lx - 1, ly - 1, lz + 1));
-              addFaceQuad(bucket, faceTileIdx[3], [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], [0, -1, 0], [ao0, ao1, ao2, ao3]);
+              addQuad(bucket, faceTileIdx[3], [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], [0, -1, 0], [ao0, ao1, ao2, ao3]);
             }
 
             // CARA FRONTAL (+Z)
@@ -1484,7 +1515,7 @@
               const ao1 = calcAO(isOpaqueFast(lx + 1, ly, lz + 1), isOpaqueFast(lx, ly - 1, lz + 1), isOpaqueFast(lx + 1, ly - 1, lz + 1));
               const ao2 = calcAO(isOpaqueFast(lx + 1, ly + 1, lz + 1), isOpaqueFast(lx, ly + 1, lz + 1), isOpaqueFast(lx + 1, ly + 1, lz + 1));
               const ao3 = calcAO(isOpaqueFast(lx - 1, ly + 1, lz + 1), isOpaqueFast(lx, ly + 1, lz + 1), isOpaqueFast(lx - 1, ly + 1, lz + 1));
-              addFaceQuad(bucket, faceTileIdx[4], [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0, 0, 1], [ao0, ao1, ao2, ao3]);
+              addQuad(bucket, faceTileIdx[4], [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0, 0, 1], [ao0, ao1, ao2, ao3]);
             }
 
             // CARA TRASERA (-Z)
@@ -1493,7 +1524,7 @@
               const ao1 = calcAO(isOpaqueFast(lx - 1, ly, lz - 1), isOpaqueFast(lx, ly - 1, lz - 1), isOpaqueFast(lx - 1, ly - 1, lz - 1));
               const ao2 = calcAO(isOpaqueFast(lx - 1, ly + 1, lz - 1), isOpaqueFast(lx, ly + 1, lz - 1), isOpaqueFast(lx - 1, ly + 1, lz - 1));
               const ao3 = calcAO(isOpaqueFast(lx + 1, ly + 1, lz - 1), isOpaqueFast(lx, ly + 1, lz - 1), isOpaqueFast(lx + 1, ly + 1, lz - 1));
-              addFaceQuad(bucket, faceTileIdx[5], [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [0, 0, -1], [ao0, ao1, ao2, ao3]);
+              addQuad(bucket, faceTileIdx[5], [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [0, 0, -1], [ao0, ao1, ao2, ao3]);
             }
           }
         }
@@ -1521,6 +1552,7 @@
 
       finalizeMesh(opaqueBucket, atlasMat);
       finalizeMesh(transBucket, atlasMatTransparent);
+      finalizeMesh(glassBucket, glassMat);
 
       chunkGroup.updateMatrix();
       scene.add(chunkGroup);
