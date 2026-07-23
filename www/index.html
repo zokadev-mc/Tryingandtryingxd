@@ -1118,21 +1118,6 @@
     const handMaterials = handFaceTextures.map(t => new THREE.MeshStandardMaterial({
       map: t, roughness: 0.75, metalness: 0.1
     }));
-    function updateHandBlock(typeId) {
-      const faces = ATLAS_FACE[typeId];
-      if (!faces) return;
-      faces.forEach((tileIdx, i) => {
-        const cv = atlasTiles[tileIdx];
-        if (cv && handMaterials[i]) {
-          const ctx = handMaterials[i].map.image.getContext('2d');
-          ctx.clearRect(0, 0, 16, 16);
-          ctx.drawImage(cv, 0, 0);
-          handMaterials[i].map.needsUpdate = true;
-        }
-      });
-    }
-    updateHandBlock(1);
-
     const ATLAS_FACE = [
       null,
       [2,2,1,0,2,2], // 1 grass
@@ -1166,6 +1151,21 @@
       13: { name: 'Nieve', preview: texSnow.canvas, opaque: true },
       14: { name: 'Agua', preview: texWater.canvas, opaque: false }
     };
+
+    function updateHandBlock(typeId) {
+      const faces = ATLAS_FACE[typeId];
+      if (!faces) return;
+      faces.forEach((tileIdx, i) => {
+        const cv = atlasTiles[tileIdx];
+        if (cv && handMaterials[i]) {
+          const ctx = handMaterials[i].map.image.getContext('2d');
+          ctx.clearRect(0, 0, 16, 16);
+          ctx.drawImage(cv, 0, 0);
+          handMaterials[i].map.needsUpdate = true;
+        }
+      });
+    }
+    updateHandBlock(1);
 
     // --- 4. DATOS Y CHUNKS DEL TERRENO ---
     const mobileDevice = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
