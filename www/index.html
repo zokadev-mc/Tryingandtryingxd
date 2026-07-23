@@ -1106,6 +1106,18 @@
     });
     atlasMatTransparent.shadowSide = THREE.DoubleSide;
 
+    const handPreviewCanvas = document.createElement('canvas');
+    handPreviewCanvas.width = 16;
+    handPreviewCanvas.height = 16;
+    const handPreviewCtx = handPreviewCanvas.getContext('2d');
+    handPreviewCtx.drawImage(texGrassSide.canvas, 0, 0);
+    const handTexture = new THREE.CanvasTexture(handPreviewCanvas);
+    handTexture.magFilter = THREE.NearestFilter;
+    handTexture.minFilter = THREE.NearestFilter;
+    const handMat = new THREE.MeshStandardMaterial({
+      map: handTexture, roughness: 0.75, metalness: 0.1
+    });
+
     const ATLAS_FACE = [
       null,
       [2,2,1,0,2,2], // 1 grass
@@ -1362,7 +1374,7 @@
         const row = Math.floor(tileIdx / ATLAS_COLS);
         
         // Margen extra microscópico para asegurar que los mipmaps extremos nunca toquen el padding
-        const uvEps = 0.05 / ATLAS_SIZE; 
+        const uvEps = 1.0 / ATLAS_SIZE; 
         
         const u0 = (col * SLOT_SIZE + PADDING) / ATLAS_SIZE + uvEps;
         const u1 = (col * SLOT_SIZE + PADDING + TILE_SIZE) / ATLAS_SIZE - uvEps;
@@ -2180,7 +2192,7 @@
     camera.add(handGroup);
 
     const miniBlockGeo = new THREE.BoxGeometry(0.25, 0.125, 0.25);
-    let handBlockMesh = new THREE.Mesh(miniBlockGeo, atlasMat);
+    let handBlockMesh = new THREE.Mesh(miniBlockGeo, handMat);
     handBlockMesh.position.set(0.38, -0.32, -0.5);
     handBlockMesh.rotation.set(0.2, -0.4, 0.1);
     handGroup.add(handBlockMesh);
@@ -2633,6 +2645,14 @@
       Array.from(hotbarEl.children).forEach((slot, i) => slot.classList.toggle('active', i === index));
       if (isMobile) {
         document.querySelectorAll('#mobile-hotbar .m-slot').forEach((slot, i) => slot.classList.toggle('active', i === index));
+      }
+      const typeId = availableSlotTypes[index];
+      const preview = BLOCKS[typeId]?.preview;
+      if (preview) {
+        const hCtx = handPreviewCanvas.getContext('2d');
+        hCtx.clearRect(0, 0, 16, 16);
+        hCtx.drawImage(preview, 0, 0);
+        handTexture.needsUpdate = true;
       }
     }
 
