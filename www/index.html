@@ -1129,7 +1129,7 @@
     glassTexture.encoding = THREE.sRGBEncoding;
     const glassMat = new THREE.MeshStandardMaterial({
       map: glassTexture, roughness: 0.6, metalness: 0.05,
-      transparent: true, alphaTest: 0.01
+      transparent: true, alphaTest: 0.01, depthWrite: false
     });
 
     function makeHandTex() {
@@ -1563,6 +1563,7 @@
         mesh.receiveShadow = true;
         mesh.matrixAutoUpdate = false;
         mesh.updateMatrix();
+        if (mat === glassMat) mesh.renderOrder = 2;
 
         chunkGroup.add(mesh);
       }
