@@ -1106,17 +1106,32 @@
     });
     atlasMatTransparent.shadowSide = THREE.DoubleSide;
 
-    const handPreviewCanvas = document.createElement('canvas');
-    handPreviewCanvas.width = 16;
-    handPreviewCanvas.height = 16;
-    const handPreviewCtx = handPreviewCanvas.getContext('2d');
-    handPreviewCtx.drawImage(texGrassSide.canvas, 0, 0);
-    const handTexture = new THREE.CanvasTexture(handPreviewCanvas);
-    handTexture.magFilter = THREE.NearestFilter;
-    handTexture.minFilter = THREE.NearestFilter;
-    const handMat = new THREE.MeshStandardMaterial({
-      map: handTexture, roughness: 0.75, metalness: 0.1
-    });
+    function makeHandTex() {
+      const c = document.createElement('canvas');
+      c.width = 16; c.height = 16;
+      const t = new THREE.CanvasTexture(c);
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.NearestFilter;
+      return t;
+    }
+    const handFaceTextures = [0,0,0,0,0,0].map(makeHandTex);
+    const handMaterials = handFaceTextures.map(t => new THREE.MeshStandardMaterial({
+      map: t, roughness: 0.75, metalness: 0.1
+    }));
+    function updateHandBlock(typeId) {
+      const faces = ATLAS_FACE[typeId];
+      if (!faces) return;
+      faces.forEach((tileIdx, i) => {
+        const cv = atlasTiles[tileIdx];
+        if (cv && handMaterials[i]) {
+          const ctx = handMaterials[i].map.image.getContext('2d');
+          ctx.clearRect(0, 0, 16, 16);
+          ctx.drawImage(cv, 0, 0);
+          handMaterials[i].map.needsUpdate = true;
+        }
+      });
+    }
+    updateHandBlock(1);
 
     const ATLAS_FACE = [
       null,
@@ -2192,7 +2207,7 @@
     camera.add(handGroup);
 
     const miniBlockGeo = new THREE.BoxGeometry(0.25, 0.125, 0.25);
-    let handBlockMesh = new THREE.Mesh(miniBlockGeo, handMat);
+    let handBlockMesh = new THREE.Mesh(miniBlockGeo, handMaterials);
     handBlockMesh.position.set(0.38, -0.32, -0.5);
     handBlockMesh.rotation.set(0.2, -0.4, 0.1);
     handGroup.add(handBlockMesh);
@@ -2646,14 +2661,7 @@
       if (isMobile) {
         document.querySelectorAll('#mobile-hotbar .m-slot').forEach((slot, i) => slot.classList.toggle('active', i === index));
       }
-      const typeId = availableSlotTypes[index];
-      const preview = BLOCKS[typeId]?.preview;
-      if (preview) {
-        const hCtx = handPreviewCanvas.getContext('2d');
-        hCtx.clearRect(0, 0, 16, 16);
-        hCtx.drawImage(preview, 0, 0);
-        handTexture.needsUpdate = true;
-      }
+      updateHandBlock(availableSlotTypes[index]);
     }
 
     const lookDir = new THREE.Vector3();
