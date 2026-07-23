@@ -1109,12 +1109,26 @@
     });
     atlasMatTransparent.shadowSide = THREE.DoubleSide;
 
+    const glassPad = 8;
     const glassCanvas = document.createElement('canvas');
-    glassCanvas.width = 16; glassCanvas.height = 16;
-    glassCanvas.getContext('2d').drawImage(texGlass.canvas, 0, 0);
+    glassCanvas.width = glassCanvas.height = 16 + glassPad * 2;
+    const gCtx = glassCanvas.getContext('2d');
+    gCtx.imageSmoothingEnabled = false;
+    gCtx.drawImage(texGlass.canvas, glassPad, glassPad);
+    for (let p = 1; p <= glassPad; p++) {
+      gCtx.drawImage(texGlass.canvas, 0, 0, 16, 1, glassPad, glassPad - p, 16, 1);
+      gCtx.drawImage(texGlass.canvas, 0, 15, 16, 1, glassPad, glassPad + 16 + p - 1, 16, 1);
+      gCtx.drawImage(texGlass.canvas, 0, 0, 1, 16, glassPad - p, glassPad, 1, 16);
+      gCtx.drawImage(texGlass.canvas, 15, 0, 1, 16, glassPad + 16 + p - 1, glassPad, 1, 16);
+      gCtx.drawImage(texGlass.canvas, 0, 0, 1, 1, glassPad - p, glassPad - p, 1, 1);
+      gCtx.drawImage(texGlass.canvas, 15, 0, 1, 1, glassPad + 16 + p - 1, glassPad - p, 1, 1);
+      gCtx.drawImage(texGlass.canvas, 0, 15, 1, 1, glassPad - p, glassPad + 16 + p - 1, 1, 1);
+      gCtx.drawImage(texGlass.canvas, 15, 15, 1, 1, glassPad + 16 + p - 1, glassPad + 16 + p - 1, 1, 1);
+    }
     const glassTexture = new THREE.CanvasTexture(glassCanvas);
     glassTexture.magFilter = THREE.NearestFilter;
-    glassTexture.minFilter = THREE.NearestFilter;
+    glassTexture.minFilter = THREE.NearestMipmapNearestFilter;
+    glassTexture.generateMipmaps = true;
     glassTexture.encoding = THREE.sRGBEncoding;
     const glassMat = new THREE.MeshStandardMaterial({
       map: glassTexture, roughness: 0.6, metalness: 0.05,
@@ -1434,10 +1448,16 @@
 
       function addGlassFaceQuad(bucket, tileIdx, p0, p1, p2, p3, norm, aos) {
         const v = bucket.vertexCount;
+        const gs = 16 + glassPad * 2;
+        const eps = 1.0 / gs;
+        const u0 = glassPad / gs + eps;
+        const u1 = (glassPad + 16) / gs - eps;
+        const v0 = 1.0 - (glassPad + 16) / gs + eps;
+        const v1 = 1.0 - glassPad / gs - eps;
         bucket.positions.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], p3[0], p3[1], p3[2]);
         const nx = norm[0], ny = norm[1], nz = norm[2];
         bucket.normals.push(nx, ny, nz, nx, ny, nz, nx, ny, nz, nx, ny, nz);
-        bucket.uvs.push(0, 1, 1, 1, 1, 0, 0, 0);
+        bucket.uvs.push(u0, v0, u1, v0, u1, v1, u0, v1);
         const c0 = aos[0], c1 = aos[1], c2 = aos[2], c3 = aos[3];
         bucket.colors.push(c0, c0, c0, c1, c1, c1, c2, c2, c2, c3, c3, c3);
         if (c0 + c2 > c1 + c3) {
