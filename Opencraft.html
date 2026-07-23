@@ -1147,7 +1147,7 @@
     const handFaceTextures = [0,0,0,0,0,0].map(makeHandTex);
     const handMaterials = handFaceTextures.map(t => new THREE.MeshStandardMaterial({
       map: t, roughness: 0.75, metalness: 0.1,
-      transparent: true, alphaTest: 0.01
+      transparent: true, alphaTest: 0.01, depthWrite: false
     }));
     const ATLAS_FACE = [
       null,
